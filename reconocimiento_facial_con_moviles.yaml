@@ -1,0 +1,159 @@
+blueprint:
+  name: RECONOCIMIENTO FACIAL (Con Voz y Notificaciones)
+  description: Detecta a una persona específica con Double Take, envía una notificación y dice una frase aleatoria por Alexa.
+  domain: automation
+  input:
+    # --- PESTAÑA 1: RECONOCIMIENTO ---
+    seccion_persona:
+      name: "👤 ¿A quién buscamos?"
+      description: "Escribe el nombre exacto que configuraste en tu sistema de reconocimiento (Double Take)."
+      icon: mdi:face-recognition
+      collapsed: true
+      input:
+        person_name:
+          name: "Nombre de la persona"
+          description: "Escríbelo en minúsculas."
+          default: ""
+          selector:
+            text: {}
+
+    # --- PESTAÑA 2: ALTAVOZ ---
+    seccion_altavoz:
+      name: "🗣️ Altavoz de Salida"
+      description: "Configura por dónde quieres que hable el sistema."
+      icon: mdi:account-voice
+      collapsed: true
+      input:
+        alexa_speaker:
+          name: "Altavoz Alexa"
+          description: "Elige el dispositivo de salida."
+          default: 
+          selector:
+            entity:
+              domain: media_player
+              integration: alexa_media
+
+    # --- PESTAÑA 3: MENSAJES Y EFECTOS ---
+    seccion_mensajes:
+      name: "💬 Mensajes de Voz"
+      description: |
+        Para usar efectos, DEBES empezar la frase con <speak> y terminarla con </speak>.
+        Copia estos códigos y pégalos en tu frase:
+
+        🤫 SUSURRO: <amazon:effect name='whispered'>TEXTO</amazon:effect>        👈<-- (Sustituye TEXTO por tus palabras)
+        
+        ⏩ RÁPIDO: <prosody rate='fast'>TEXTO</prosody>                          👈<-- (Sustituye TEXTO por tus palabras)
+        
+        🐢 LENTO: <prosody rate='slow'>TEXTO</prosody>                           👈<-- (Sustituye TEXTO por tus palabras)
+        
+        ⏱️ PAUSA: <break time='1s'/>                                             👈<-- (Sustituye 1s por los segundos que quieras esperar. Ej: 2s o 500ms)
+      icon: mdi:message-text-outline
+      collapsed: true
+      input:
+        voice_messages:
+          name: "Frases Aleatorias"
+          default: []
+          selector:
+            text:
+              multiple: true
+
+    # --- PESTAÑA 4: NOTIFICACIONES AL MÓVIL ---
+    seccion_movil:
+      name: "📱 Avisos al Móvil"
+      description: "Elige a qué móviles mandar el aviso."
+      icon: mdi:cellphone-message
+      collapsed: true
+      input:
+        notify_device_1:
+          name: "Móvil 1"
+          default: ""
+          selector:
+            device:
+              integration: mobile_app
+        notify_device_2:
+          name: "Móvil 2"
+          default: ""
+          selector:
+            device:
+              integration: mobile_app
+
+    # --- PESTAÑA 5: TIEMPO DE ESPERA ---
+    seccion_tiempo:
+      name: "⏱️ Tiempo de Anti-Repetición"
+      description: "Tiempo que debe pasar antes de que el sistema vuelva a saludar a la misma persona."
+      icon: mdi:timer-outline
+      collapsed: true
+      input:
+        cooldown_seconds:
+          name: "Segundos de espera"
+          description: "Si la cámara lo vuelve a ver en este tiempo, lo ignorará (300 segundos = 5 minutos)."
+          default: 120
+          selector:
+            number:
+              min: 1
+              max: 300
+              unit_of_measurement: segundos
+
+mode: single
+max_exceeded: silent
+
+variables:
+  target_name: !input person_name
+  alexa_target: !input alexa_speaker
+  mobile_1: !input notify_device_1
+  mobile_2: !input notify_device_2
+  frases_aleatorias: !input voice_messages
+
+trigger:
+  - platform: mqtt
+    topic: double-take/matches/#
+
+condition:
+  # Condición 1: Comprueba si el nombre coincide con el del MQTT
+  - condition: template
+    value_template: >
+      {{ target_name|lower in trigger.payload_json.match.name|lower 
+         if trigger.payload_json.match is defined 
+         else (target_name|lower in trigger.payload_json.matches[0].name|lower 
+         if trigger.payload_json.matches is defined and trigger.payload_json.matches|length > 0 
+         else false) }}
+  
+  # Condición 2: Comprueba que el altavoz esté configurado para no dar error
+  - condition: template
+    value_template: "{{ alexa_target != none and alexa_target != '' }}"
+
+action:
+  - parallel:
+      # ACCION 1: Hablar por Alexa (Usando la variable segura)
+      - service: notify.alexa_media
+        data:
+          target: !input alexa_speaker
+          data:
+            type: tts
+          message: "{{ frases_aleatorias | random }}"
+
+      # ACCION 2: Notificar Móvil 1
+      - if:
+          - condition: template
+            value_template: "{{ mobile_1 != none and mobile_1 != '' }}"
+        then:
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device_1
+            message: "¡{{ target_name | title }} ha llegado a casa! 🏠"
+            title: "Reconocimiento Facial"
+
+      # ACCION 3: Notificar Móvil 2
+      - if:
+          - condition: template
+            value_template: "{{ mobile_2 != none and mobile_2 != '' }}"
+        then:
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device_2
+            message: "¡{{ target_name | title }} ha llegado a casa! 🏠"
+            title: "Reconocimiento Facial"
+
+  # CONTROL DE TIEMPO: Espera X segundos
+  - delay:
+      seconds: !input cooldown_seconds
