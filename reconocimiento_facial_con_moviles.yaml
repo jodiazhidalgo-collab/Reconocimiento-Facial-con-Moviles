@@ -1,5 +1,5 @@
 blueprint:
-  name: RECONOCIMIENTO FACIAL (Con Voz y Notificaciones)
+  name: RECONOCIMIENTO FACIAL CON MOVILES (Con Voz y Notificaciones)
   description: Detecta a una persona específica con Double Take, envía una notificación y dice una frase aleatoria por Alexa.
   domain: automation
   input:
