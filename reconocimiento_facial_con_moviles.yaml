@@ -1,6 +1,6 @@
 blueprint:
-  name: "📱 RECONOCIMIENTO FACIAL CON MÓVILES (Voz y Notificaciones)"
-  description: Detecta a una persona con Double Take, envía una notificación a los móviles elegidos y dice una frase aleatoria por Alexa.
+  name: RECONOCIMIENTO FACIAL CON MOVILES (Con Voz y Notificaciones)
+  description: Detecta a una persona específica con Double Take, envía una notificación y dice una frase aleatoria por Alexa.
   domain: automation
   input:
     # --- PESTAÑA 1: RECONOCIMIENTO ---
@@ -59,8 +59,8 @@ blueprint:
 
     # --- PESTAÑA 4: NOTIFICACIONES AL MÓVIL ---
     seccion_movil:
-      name: "📱 Avisos al Móvil (Obligatorio)"
-      description: "Elige a qué móviles mandar el aviso. (Si no quieres aviso, usa la otra plantilla)."
+      name: "📱 Avisos al Móvil"
+      description: "Elige a qué móviles mandar el aviso."
       icon: mdi:cellphone-message
       collapsed: true
       input:
@@ -86,7 +86,7 @@ blueprint:
       input:
         cooldown_seconds:
           name: "Segundos de espera"
-          description: "Si la cámara lo vuelve a ver en este tiempo, lo ignorará."
+          description: "Si la cámara lo vuelve a ver en este tiempo, lo ignorará (300 segundos = 5 minutos)."
           default: 120
           selector:
             number:
@@ -124,7 +124,7 @@ condition:
 
 action:
   - parallel:
-      # ACCION 1: Hablar por Alexa
+      # ACCION 1: Hablar por Alexa (Usando la variable segura)
       - service: notify.alexa_media
         data:
           target: !input alexa_speaker
